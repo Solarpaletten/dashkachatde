@@ -6,8 +6,6 @@ const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
 
-logger.logTranslation(text, sourceCode, targetCode, Date.now() - startTime, false);
-
 // Config
 const config = require('./config');
 const corsOptions = require('./config/cors');
