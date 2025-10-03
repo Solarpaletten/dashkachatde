@@ -1,8 +1,6 @@
 const logger = require('../utils/logger');
 const clientManager = require('./clientManager');
 
-logger.logWebSocket('connection', clientId, { total: clients.size });
-
 function handleSetRole(clientId, data) {
   const { role } = data;
   
