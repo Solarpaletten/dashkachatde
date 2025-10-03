@@ -75,7 +75,7 @@ const DashboardDesktop: React.FC = () => {
             {layoutMode === 'vertical' ? '↕️' : '↔️'}
           </button>
 
-          {/* Auto-translate */}
+          {/* Auto-translate Toggle */}
           <label className="flex items-center gap-2 text-white">
             <input
               type="checkbox"
@@ -86,38 +86,38 @@ const DashboardDesktop: React.FC = () => {
             <span className="text-sm">Автоперевод</span>
           </label>
 
+          {/* Translation Mode Toggle (Manual/Auto) */}
           <button
-            disabled={translationMode === 'auto'}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'user'
-                ? 'bg-white/90 text-gray-900'
-                : 'bg-white/20 text-white hover:bg-white/30'
-              } ${translationMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => handleRoleChange('user')}
+            onClick={toggleTranslationMode}
+            className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all font-semibold"
+            title="Переключить режим перевода"
           >
-            🇷🇺 {currentLanguageConfig.languageSelector.sourceLabel}
+            {translationMode === 'manual' ? '🎯 Manual' : '🤖 Auto'}
           </button>
 
-          {/* Language Selector */}
-          <div className="flex gap-2">
-            <button
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'user'
-                ? 'bg-white/90 text-gray-900'
-                : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
-              onClick={() => handleRoleChange('user')}
-            >
-              🇷🇺 {currentLanguageConfig.languageSelector.sourceLabel}
-            </button>
-            <button
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'steuerberater'
-                ? 'bg-white/90 text-gray-900'
-                : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
-              onClick={() => handleRoleChange('steuerberater')}
-            >
-              🇵🇱 {currentLanguageConfig.languageSelector.targetLabel}
-            </button>
-          </div>
+          {/* Language Selector - только если Manual режим */}
+          {translationMode === 'manual' && (
+            <div className="flex gap-2">
+              <button
+                className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'user'
+                    ? 'bg-white/90 text-gray-900'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                onClick={() => handleRoleChange('user')}
+              >
+                🇷🇺 {currentLanguageConfig.languageSelector.sourceLabel}
+              </button>
+              <button
+                className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'steuerberater'
+                    ? 'bg-white/90 text-gray-900'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                onClick={() => handleRoleChange('steuerberater')}
+              >
+                🇵🇱 {currentLanguageConfig.languageSelector.targetLabel}
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
