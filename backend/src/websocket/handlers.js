@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const clientManager = require('./clientManager');
 
+
 function handleSetRole(clientId, data) {
   const { role } = data;
   
