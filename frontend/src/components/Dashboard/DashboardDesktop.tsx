@@ -86,22 +86,22 @@ const DashboardDesktop: React.FC = () => {
             <span className="text-sm">Автоперевод</span>
           </label>
 
-          {/* Translation Mode Toggle (Manual/Auto) */}
+          {/* Translation Mode Toggle - кнопка показывает что будет после клика */}
           <button
             onClick={toggleTranslationMode}
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all font-semibold"
             title="Переключить режим перевода"
           >
-            {translationMode === 'manual' ? '🎯 Manual' : '🤖 Auto'}
+            {translationMode === 'manual' ? '🤖 Включить Авто' : '🎯 Фиксировать языки'}
           </button>
 
-          {/* Language Selector - только если Manual режим */}
+          {/* Language Selector - показываем только в Manual режиме */}
           {translationMode === 'manual' && (
             <div className="flex gap-2">
               <button
                 className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'user'
-                    ? 'bg-white/90 text-gray-900'
-                    : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-white/90 text-gray-900'
+                  : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                 onClick={() => handleRoleChange('user')}
               >
@@ -109,8 +109,8 @@ const DashboardDesktop: React.FC = () => {
               </button>
               <button
                 className={`px-4 py-2 rounded-lg font-semibold transition-all ${currentRole === 'steuerberater'
-                    ? 'bg-white/90 text-gray-900'
-                    : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-white/90 text-gray-900'
+                  : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
                 onClick={() => handleRoleChange('steuerberater')}
               >
