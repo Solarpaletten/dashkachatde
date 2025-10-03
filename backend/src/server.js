@@ -5,7 +5,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
-
 // Config
 const config = require('./config');
 const corsOptions = require('./config/cors');
