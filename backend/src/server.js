@@ -27,6 +27,7 @@ const { cleanupTempFiles } = require('./utils/fileCleanup');
 class DashkaBotServer {
   constructor() {
     this.app = express();
+    this.app.set('trust proxy', 1);
     this.server = http.createServer(this.app);
     
     this.setupMiddleware();
