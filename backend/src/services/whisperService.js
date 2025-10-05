@@ -1,124 +1,86 @@
-const OpenAI = require('openai');
+// backend/src/services/whisperService.js
 const fs = require('fs');
 const path = require('path');
+const OpenAI = require('openai');
 
 class WhisperService {
-  constructor() {
-    if (process.env.OPENAI_API_KEY) {
-      this.openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY
-      });
-      console.log('🎤 Whisper Service initialized (OpenAI API)');
-    } else {
-      this.openai = null;
-      console.log('🎤 Whisper Service initialized (mock mode - no API key)');
-    }
-    
-    this.supportedLanguages = ['en', 'ru', 'de', 'es', 'cs', 'pl', 'lt', 'lv', 'no'];
+  constructor(apiKey) {
+    this.openai = new OpenAI({ apiKey });
   }
 
-  async transcribe(audioFilePath, language = 'auto') {
+  /**
+   * Распознаёт речь из аудиофайла с использованием Whisper API.
+   * Поддерживает автоопределение языка и диалектов.
+   * @param {string} audioFilePath - путь к аудиофайлу
+   * @param {string} [language='auto'] - язык речи (или auto)
+   * @returns {Promise<{text: string, language: string, confidence: number, provider: string}>}
+   */
+  async transcribeAudio(audioFilePath, language = 'auto') {
     try {
-      // Проверяем что файл существует
       if (!fs.existsSync(audioFilePath)) {
-        throw new Error('Audio file not found');
+        throw new Error(`Файл не найден: ${audioFilePath}`);
       }
 
-      // Если нет OpenAI API ключа, возвращаем заглушку
-      if (!this.openai) {
-        console.log('⚠️ No OpenAI API key, using mock transcription');
-        const mockTexts = {
-          'ru': 'Добрый день, хотел бы сдать отчётность по налогам',
-          'de': 'Guten Tag, ich möchte meine Steuererklärung abgeben',
-          'en': 'Good day, I would like to submit my tax return',
-          'auto': 'Sample transcription for testing purposes'
-        };
-        
-        return {
-          text: mockTexts[language] || mockTexts['auto'],
-          language: language === 'auto' ? 'ru' : language,
-          confidence: 0.95,
-          duration: 3.0,
-          provider: 'mock-whisper'
-        };
-      }
-
-      // Реальное использование Whisper API
       console.log(`🎤 Transcribing audio file: ${path.basename(audioFilePath)}`);
-      
+      console.log(`🌍 Whisper language param: ${language}`);
+
+      // Маппинг для поддержки диалектов
+      const langMap = {
+        'fr-CH': 'fr',
+        'fr-FR': 'fr',
+        'fr-CA': 'fr',
+        'ru-RU': 'ru',
+        'ru': 'ru'
+      };
+      const whisperLang = langMap[language] || (language === 'auto' ? undefined : language);
+
+      // Whisper API
       const transcription = await this.openai.audio.transcriptions.create({
         file: fs.createReadStream(audioFilePath),
         model: 'whisper-1',
-        language: language === 'auto' ? undefined : language,
+        language: whisperLang,
         response_format: 'json',
         temperature: 0.2
       });
 
-      console.log(`📝 Transcription result: "${transcription.text}"`);
+      const text = transcription.text?.trim() || '';
+      const detectedLang = transcription.language || whisperLang || 'auto';
+
+      // Проверка на смешанный алфавит
+      const hasMixedAlphabet =
+        /[а-яА-Я]/.test(text) && /[a-zA-Z]/.test(text);
+      if (hasMixedAlphabet) {
+        console.warn('⚠️ Whisper: смешанный алфавит в тексте (возможно, неверное определение языка)');
+      }
+
+      console.log(`✅ Transcription done [${detectedLang}] → ${text.slice(0, 60)}...`);
 
       return {
-        text: transcription.text,
-        language: transcription.language || language,
-        confidence: 0.95,
-        duration: transcription.duration || 5.0,
+        text,
+        language: detectedLang,
+        confidence: transcription.confidence || 0.95,
         provider: 'openai-whisper-1'
       };
-
     } catch (error) {
-      console.error('Whisper Error:', error.message);
-      
-      // Fallback к заглушке при ошибке
-      console.log('🔄 Falling back to mock transcription due to error');
-      const fallbackTexts = {
-        'ru': 'Пример текста на русском языке',
-        'de': 'Beispieltext auf Deutsch',
-        'en': 'Sample text in English',
-        'auto': 'Error fallback transcription'
-      };
-      
-      return {
-        text: fallbackTexts[language] || fallbackTexts['auto'],
-        language: language === 'auto' ? 'ru' : language,
-        confidence: 0.5,
-        duration: 3.0,
-        provider: 'fallback-mock',
-        error: error.message
-      };
+      console.error(`❌ Ошибка транскрипции Whisper: ${error.message}`);
+      throw error;
     }
   }
 
-  // Метод для прямого текстового ввода (обход аудио)
-  async transcribeText(text, language = 'auto') {
-    console.log(`📝 Direct text input: "${text}"`);
-    
+  /**
+   * Тестовая функция для прямого текста.
+   */
+  async transcribeText(inputText) {
+    if (!inputText) {
+      throw new Error('Текст не передан');
+    }
     return {
-      text: text,
-      language: language === 'auto' ? 'ru' : language,
+      text: inputText.trim(),
+      language: 'text',
       confidence: 1.0,
-      duration: 0,
-      provider: 'direct-text-input'
+      provider: 'text-input'
     };
   }
 }
 
-// Создаем единый экземпляр
-const whisperService = new WhisperService();
-
-// Функция для обратной совместимости
-async function transcribeAudio(audioFilePath, language = 'auto') {
-  const result = await whisperService.transcribe(audioFilePath, language);
-  return result.text;
-}
-
-// Функция для прямого текстового ввода
-async function transcribeText(text, language = 'auto') {
-  const result = await whisperService.transcribeText(text, language);
-  return result.text;
-}
-
-module.exports = {
-  transcribeAudio,
-  transcribeText,
-  WhisperService,
-  whisperService
-};
+module.exports = WhisperService;

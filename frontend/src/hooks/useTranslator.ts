@@ -3,17 +3,18 @@ import { useState, useEffect, useRef } from 'react';
 type TranslationMode = 'manual' | 'auto';
 
 export const useTranslator = () => {
-  // State управление
-  const [translationMode, setTranslationMode] = useState<TranslationMode>('manual');
+  // State management
+  const [translationMode, setTranslationMode] = useState<TranslationMode>('auto');
   const [currentRole, setCurrentRole] = useState<'user' | 'steuerberater'>('user');
   const [currentMode, setCurrentMode] = useState<'text' | 'voice'>('text');
   const [inputText, setInputText] = useState('');
-  const [originalText, setOriginalText] = useState('Введите текст или нажмите на микрофон...');
-  const [translatedText, setTranslatedText] = useState('Перевод появится здесь...');
+  const [originalText, setOriginalText] = useState('');
+  const [translatedText, setTranslatedText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [status, setStatus] = useState('🟢 DashkaBot готов к работе');
+  const [status, setStatus] = useState('🟢 Ready');
   const [isTranslating, setIsTranslating] = useState(false);
   const [autoTranslate, setAutoTranslate] = useState(false);
+  const [recognitionLang, setRecognitionLang] = useState<string>('ru-RU');
 
   // Connection status
   const [connectionStatus, setConnectionStatus] = useState({
@@ -30,8 +31,6 @@ export const useTranslator = () => {
   const config = {
     aiServer: import.meta.env.VITE_API_URL || "http://localhost:8080",
     wsServer: import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws",
-    enableWebSocket: true,
-    enableSpeech: true
   };
 
   // Initialize system
@@ -40,11 +39,24 @@ export const useTranslator = () => {
     return () => cleanup();
   }, []);
 
+  // Auto-translate after recording stops
+  useEffect(() => {
+    if (!isRecording && originalText.trim() && translationMode === 'auto') {
+      performTranslation(originalText);
+    }
+  }, [isRecording]);
+
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = recognitionLang;
+    }
+  }, [recognitionLang]);
+
   const initSystem = async () => {
     await checkAIServer();
     initWebSocket();
     initSpeechRecognition();
-    setStatus('🟢 DashkaBot готов к работе');
+    setStatus('🟢 DashkaBot ready');
   };
 
   const cleanup = () => {
@@ -52,39 +64,27 @@ export const useTranslator = () => {
     if (websocketRef.current) websocketRef.current.close();
   };
 
-  // AI Server Check
   const checkAIServer = async () => {
     try {
       const response = await fetch(`${config.aiServer}/health`);
-      if (response.ok) {
-        setConnectionStatus(prev => ({ ...prev, ai: true }));
-      } else {
-        throw new Error(`Server responded with ${response.status}`);
-      }
-    } catch (error) {
+      setConnectionStatus(prev => ({ ...prev, ai: response.ok }));
+    } catch {
       setConnectionStatus(prev => ({ ...prev, ai: false }));
     }
   };
 
-  // WebSocket initialization
   const initWebSocket = () => {
-    if (!config.enableWebSocket) return;
     try {
       const ws = new WebSocket(config.wsServer);
       ws.onopen = () => setConnectionStatus(prev => ({ ...prev, ws: true }));
       ws.onclose = () => setConnectionStatus(prev => ({ ...prev, ws: false }));
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      };
       ws.onerror = () => setConnectionStatus(prev => ({ ...prev, ws: false }));
       websocketRef.current = ws;
-    } catch (error) {
+    } catch {
       setConnectionStatus(prev => ({ ...prev, ws: false }));
     }
   };
 
-  // Speech Recognition
   const initSpeechRecognition = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setConnectionStatus(prev => ({ ...prev, speech: false }));
@@ -96,43 +96,27 @@ export const useTranslator = () => {
 
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    
-    // В auto режиме используем универсальный язык
-    recognition.lang = translationMode === 'auto' ? 'ru-RU' : (currentRole === 'user' ? 'ru-RU' : 'fr-FR');
+    recognition.lang = recognitionLang;
 
     recognition.onstart = () => {
       setConnectionStatus(prev => ({ ...prev, speech: true }));
-      setStatus('🎤 Запись началась... Говорите сколько угодно времени');
+      setStatus('🎤 Recording...');
     };
 
     recognition.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interimTranscript = '';
-
+      let transcript = '';
       for (let i = 0; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' ';
-        } else {
-          interimTranscript += transcript;
-        }
+        transcript += event.results[i][0].transcript;
       }
-
-      const currentText = finalTranscript + interimTranscript;
-      if (currentText.trim()) {
-        setOriginalText(currentText);
-        setStatus('🎤 Записываю... Нажмите ⏹️ когда закончите');
+      if (transcript.trim()) {
+        setOriginalText(transcript);
       }
     };
 
     recognition.onerror = (event: any) => {
-      if (event.error === 'no-speech' || event.error === 'audio-capture') {
-        setStatus('🔇 Не слышу речь... Продолжайте говорить');
-        return;
+      if (event.error !== 'no-speech' && event.error !== 'audio-capture') {
+        setStatus(`❌ Error: ${event.error}`);
       }
-      setStatus(`❌ Ошибка: ${event.error}`);
-      stopRecording();
     };
 
     recognition.onend = () => {
@@ -140,7 +124,7 @@ export const useTranslator = () => {
         try {
           recognition.start();
         } catch (err) {
-          stopRecording();
+          setIsRecording(false);
         }
       }
     };
@@ -149,7 +133,6 @@ export const useTranslator = () => {
     setConnectionStatus(prev => ({ ...prev, speech: true }));
   };
 
-  // Auto language detection
   const detectLanguage = async (text: string): Promise<string> => {
     try {
       const response = await fetch(`${config.aiServer}/detect-language`, {
@@ -157,85 +140,35 @@ export const useTranslator = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
-
-      if (!response.ok) {
-        throw new Error('Language detection failed');
-      }
-
       const result = await response.json();
       return result.detected_language || 'RU';
-    } catch (error) {
-      console.error('Language detection error:', error);
-      return 'RU'; // Fallback
+    } catch {
+      return 'RU';
     }
   };
 
-  // Speech synthesis - UNIVERSAL
-  const speakTranslation = (text: string, language: string) => {
-    if (!('speechSynthesis' in window)) return;
-
-    speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    const languageMap: Record<string, string> = {
-      'en': 'en-US',
-      'ru': 'ru-RU',
-      'de': 'de-DE',
-      'pl': 'pl-PL',
-      'fr': 'fr-FR',
-      'es': 'es-ES',
-      'cs': 'cs-CZ',
-      'lt': 'lt-LT',
-      'lv': 'lv-LV',
-      'no': 'no-NO'
-    };
-    
-    const langCode = language.toLowerCase();
-    utterance.lang = languageMap[langCode] || 'en-US';
-    
-    const voices = speechSynthesis.getVoices();
-    const selectedVoice = voices.find(voice => 
-      voice.lang.toLowerCase().startsWith(langCode)
-    );
-    
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
-    
-    utterance.pitch = 1.0;
-    utterance.rate = 0.9;
-    utterance.volume = 1.0;
-    
-    speechSynthesis.speak(utterance);
-  };
-
-  // Translation function with auto-detect
   const performTranslation = async (text: string) => {
+    if (!text.trim()) return;
+
     setIsTranslating(true);
-    setOriginalText(text);
-    setStatus('🔄 Перевожу...');
+    setStatus('🔄 Translating...');
 
     try {
       let fromLang: string;
       let toLang: string;
 
       if (translationMode === 'auto') {
-        // Auto-detect mode
-        setStatus('🔍 Определяю язык...');
-        const detectedLang = await detectLanguage(text);
-        
-        // Smart logic: RU → FR, everything else → RU
-        if (detectedLang === 'RU') {
+        const detected = await detectLanguage(text);
+        setRecognitionLang(detected === 'RU' ? 'ru-RU' : 'fr-FR');
+
+        if (detected === 'RU') {
           fromLang = 'RU';
           toLang = 'FR';
-          setStatus('🔄 Переводжу RU → FR...');
         } else {
-          fromLang = detectedLang;
+          fromLang = detected;
           toLang = 'RU';
-          setStatus(`🔄 Перевожу ${detectedLang} → RU...`);
         }
       } else {
-        // Manual mode
         fromLang = currentRole === 'user' ? 'RU' : 'FR';
         toLang = currentRole === 'user' ? 'FR' : 'RU';
       }
@@ -244,200 +177,127 @@ export const useTranslator = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: text,
+          text,
           source_language: fromLang,
           target_language: toLang
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`AI Server error: ${response.status}`);
-      }
-
       const result = await response.json();
-      const translation = result.translated_text || '[Ошибка перевода]';
+      const translation = result.translated_text || '';
 
       setTranslatedText(translation);
-      setStatus(`✅ Переведено! (${fromLang} → ${toLang})`);
+      setStatus(`✅ Done (${fromLang} → ${toLang})`);
 
-      const targetLangCode = result.target_language || toLang.toLowerCase();
-      speakTranslation(translation, targetLangCode);
+      // Озвучка перевода
+      const targetLangCode = toLang.toLowerCase();
+      if ('speechSynthesis' in window && translation) {
+        const utterance = new SpeechSynthesisUtterance(translation);
+        utterance.lang = targetLangCode === 'ru' ? 'ru-RU' : 'fr-FR';
+        utterance.rate = 0.9;
 
-      // WebSocket message
-      if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
-        const wsMessage = {
-          type: 'translation',
-          mode: translationMode,
-          original: text,
-          translation: translation,
-          from: fromLang.toLowerCase(),
-          to: toLang.toLowerCase(),
-          timestamp: new Date().toISOString()
+        const speakNow = () => {
+          const voices = speechSynthesis.getVoices();
+          const voice = voices.find(v => v.lang.startsWith(targetLangCode));
+          if (voice) utterance.voice = voice;
+          speechSynthesis.speak(utterance);
         };
-        websocketRef.current.send(JSON.stringify(wsMessage));
+
+        if (speechSynthesis.getVoices().length === 0) {
+          speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
+        } else {
+          speakNow();
+        }
       }
 
     } catch (error: any) {
-      setStatus('❌ Ошибка перевода: ' + error.message);
-      setTranslatedText('Ошибка: ' + error.message);
+      setStatus('❌ Translation error');
+      setTranslatedText('Error: ' + error.message);
     } finally {
       setIsTranslating(false);
     }
   };
 
-  // Recording controls
   const toggleRecording = () => {
     if (!recognitionRef.current) {
-      setStatus('❌ Распознавание речи недоступно');
+      setStatus('❌ Speech recognition unavailable');
       return;
     }
-    if (!isRecording) startRecording();
-    else stopRecording();
-  };
-
-  const startRecording = () => {
-    setIsRecording(true);
-    
-    const modeText = translationMode === 'auto' 
-      ? '🤖 Auto-detect режим' 
-      : `🎯 Manual режим (${currentRole === 'user' ? 'RU→FR' : 'FR→RU'})`;
-    
-    setStatus(`🎤 Слушаю... ${modeText}`);
-    setOriginalText('Говорите сейчас... (нажмите ⏹️ когда закончите)');
-    setTranslatedText('Перевод появится после остановки...');
-
-    try {
-      recognitionRef.current.start();
-    } catch (error: any) {
-      setStatus('❌ Не удалось начать запись');
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    setIsRecording(false);
-    setStatus('⏸️ Остановлено. Обработка...');
-
-    if (recognitionRef.current) recognitionRef.current.stop();
-
-    setTimeout(() => {
-      const recordedText = originalText;
-      if (recordedText && recordedText !== 'Говорите сейчас... (нажмите ⏹️ когда закончите)' && recordedText.trim()) {
-        setStatus('✅ Готово! Можете нажать "Перевести" или подождать автоперевод');
-        setTimeout(() => {
-          if (!isRecording && recordedText === originalText) {
-            performTranslation(recordedText);
-          }
-        }, 3000);
-      } else {
-        setStatus('❌ Текст не записан. Попробуйте еще раз');
-      }
-    }, 1000);
-  };
-
-  // Text functions
-  const translateText = async () => {
-    const text = inputText.trim();
-    if (!text) {
-      setStatus('❌ Введите текст для перевода');
-      return;
-    }
-    await performTranslation(text);
-  };
-
-  const translateCurrentText = async () => {
-    const textFromInput = inputText.trim();
-    const textFromOriginal = originalText;
-
-    let text = '';
-    if (currentMode === 'text' && textFromInput) {
-      text = textFromInput;
-    } else if (textFromOriginal && textFromOriginal !== 'Введите текст или нажмите на микрофон...') {
-      text = textFromOriginal;
-    }
-
-    if (!text) {
-      setStatus('❌ Нет текста для перевода');
-      return;
-    }
-
-    await performTranslation(text);
-  };
-
-  const clearText = () => {
-    setInputText('');
-    setOriginalText('Введите текст или нажмите на микрофон...');
-    setTranslatedText('Перевод появится здесь...');
-    setStatus('🟢 DashkaBot готов к работе');
-  };
-
-  // Utility functions
-  const pasteText = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      setInputText(text);
-      setStatus('📋 Текст вставлен из буфера обмена');
-    } catch (error) {
-      setStatus('❌ Не удалось вставить текст');
-    }
-  };
-
-  const copyResult = async () => {
-    if (translatedText && translatedText !== 'Перевод появится здесь...') {
+    if (!isRecording) {
+      setIsRecording(true);
+      setStatus('🎤 Listening...');
       try {
-        await navigator.clipboard.writeText(translatedText);
-        setStatus('📄 Перевод скопирован в буфер обмена');
-      } catch (error) {
-        setStatus('❌ Не удалось скопировать текст');
+        recognitionRef.current.start();
+      } catch {
+        setIsRecording(false);
       }
     } else {
-      setStatus('❌ Нет текста для копирования');
+      setIsRecording(false);
+      setStatus('⏸️ Stopped');
+      if (recognitionRef.current) recognitionRef.current.stop();
     }
   };
 
-  const handleWebSocketMessage = (data: any) => {
-    if (data.type === 'translation') {
-      if (translationMode === 'auto' || data.role !== currentRole) {
-        setOriginalText(`[${data.from}]: ${data.original}`);
-        setTranslatedText(data.translation);
-        setStatus(`📨 Получен перевод ${data.from} → ${data.to}`);
-      }
+  const toggleTranslationMode = () => {
+    const newMode = translationMode === 'manual' ? 'auto' : 'manual';
+    setTranslationMode(newMode);
+    setStatus(newMode === 'auto' ? '🤖 Auto mode' : '🎯 Manual mode');
+
+    // ✅ Переключаем язык микрофона
+    const newLang = newMode === 'manual'
+      ? (currentRole === 'user' ? 'ru-RU' : 'fr-FR')
+      : 'ru-RU';
+
+    setRecognitionLang(newLang);
+
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = newLang;
+      recognitionRef.current.stop();
     }
+
+    initSpeechRecognition();
   };
 
-  // Role switching (only for manual mode)
+
   const handleRoleChange = (role: 'user' | 'steuerberater') => {
     if (translationMode === 'manual') {
       setCurrentRole(role);
-      const roleName = role === 'user' ? 'Russian Speaker 🇷🇺' : 'France Speaker 🇫🇷';
-      setStatus('Роль: ' + roleName);
-
       if (recognitionRef.current) {
         recognitionRef.current.lang = role === 'user' ? 'ru-RU' : 'fr-FR';
       }
     }
   };
 
-  // Toggle translation mode
-  const toggleTranslationMode = () => {
-    const newMode = translationMode === 'manual' ? 'auto' : 'manual';
-    setTranslationMode(newMode);
-    
-    const modeText = newMode === 'auto' 
-      ? '🤖 Auto-detect: система сама определит язык'
-      : '🎯 Manual: выберите направление перевода';
-    
-    setStatus(modeText);
-    
-    // Reinit speech recognition with new mode
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      initSpeechRecognition();
+  const translateText = async () => {
+    if (inputText.trim()) {
+      await performTranslation(inputText.trim());
+    }
+  };
+
+  const clearText = () => {
+    setInputText('');
+    setOriginalText('');
+    setTranslatedText('');
+    setStatus('🟢 Ready');
+  };
+
+  const pasteText = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setInputText(text);
+    } catch { }
+  };
+
+  const copyResult = async () => {
+    if (translatedText) {
+      try {
+        await navigator.clipboard.writeText(translatedText);
+        setStatus('📄 Copied');
+      } catch { }
     }
   };
 
   return {
-    // State
     translationMode,
     currentRole,
     currentMode,
@@ -449,21 +309,18 @@ export const useTranslator = () => {
     isTranslating,
     autoTranslate,
     connectionStatus,
-    
-    // Setters
     setCurrentMode,
     setInputText,
     setAutoTranslate,
-    
-    // Functions
     handleRoleChange,
     toggleRecording,
     translateText,
-    translateCurrentText,
     clearText,
     pasteText,
     copyResult,
     performTranslation,
-    toggleTranslationMode
+    toggleTranslationMode,
+    recognitionLang,
+    setRecognitionLang
   };
 };
