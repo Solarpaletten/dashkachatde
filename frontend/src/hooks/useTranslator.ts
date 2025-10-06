@@ -2,8 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 
 type TranslationMode = 'manual' | 'auto';
 
+// Простой logger вместо импорта
+const logger = {
+  info: (...args: any[]) => console.log('[INFO]', ...args),
+  error: (...args: any[]) => console.error('[ERROR]', ...args),
+  debug: (...args: any[]) => console.log('[DEBUG]', ...args)
+};
+
 export const useTranslator = () => {
-  // State management
   const [translationMode, setTranslationMode] = useState<TranslationMode>('auto');
   const [currentRole, setCurrentRole] = useState<'user' | 'steuerberater'>('user');
   const [currentMode, setCurrentMode] = useState<'text' | 'voice'>('text');
@@ -16,30 +22,25 @@ export const useTranslator = () => {
   const [autoTranslate, setAutoTranslate] = useState(false);
   const [recognitionLang, setRecognitionLang] = useState<string>('ru-RU');
 
-  // Connection status
   const [connectionStatus, setConnectionStatus] = useState({
     ai: false,
     ws: false,
     speech: false
   });
 
-  // Refs
   const recognitionRef = useRef<any>(null);
   const websocketRef = useRef<WebSocket | null>(null);
 
-  // API Configuration
   const config = {
     aiServer: import.meta.env.VITE_API_URL || "http://localhost:8080",
     wsServer: import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws",
   };
 
-  // Initialize system
   useEffect(() => {
     initSystem();
     return () => cleanup();
   }, []);
 
-  // Auto-translate after recording stops
   useEffect(() => {
     if (!isRecording && originalText.trim() && translationMode === 'auto') {
       performTranslation(originalText);
@@ -56,7 +57,7 @@ export const useTranslator = () => {
     await checkAIServer();
     initWebSocket();
     initSpeechRecognition();
-    setStatus('🟢 DashkaBot ready');
+    setStatus('🟢 DualTranslator ready');
   };
 
   const cleanup = () => {
@@ -76,11 +77,56 @@ export const useTranslator = () => {
   const initWebSocket = () => {
     try {
       const ws = new WebSocket(config.wsServer);
-      ws.onopen = () => setConnectionStatus(prev => ({ ...prev, ws: true }));
-      ws.onclose = () => setConnectionStatus(prev => ({ ...prev, ws: false }));
-      ws.onerror = () => setConnectionStatus(prev => ({ ...prev, ws: false }));
+
+      ws.onopen = () => {
+        setConnectionStatus(prev => ({ ...prev, ws: true }));
+        logger.info('WebSocket connected');
+      };
+
+      ws.onclose = () => {
+        setConnectionStatus(prev => ({ ...prev, ws: false }));
+        logger.info('WebSocket disconnected');
+      };
+
+      ws.onerror = (error) => {
+        setConnectionStatus(prev => ({ ...prev, ws: false }));
+        logger.error('WebSocket error:', error);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          logger.info('WebSocket message received:', data);
+
+          switch (data.type) {
+            case 'translation':
+              // Перевод от партнёра - обновляем UI
+              if (data.username) {
+                setOriginalText(data.original || '');
+                setTranslatedText(data.translation || '');
+                setStatus(`💬 ${data.username}: ${data.from} → ${data.to}`);
+              }
+              break;
+
+            case 'user_joined':
+              setStatus(`✅ ${data.username} подключился (${data.participants} чел.)`);
+              break;
+
+            case 'welcome':
+              logger.info('Welcome:', data.message);
+              break;
+
+            default:
+              logger.info('Unknown type:', data.type);
+          }
+        } catch (error) {
+          logger.error('WebSocket parse error:', error);
+        }
+      };
+
       websocketRef.current = ws;
-    } catch {
+    } catch (error) {
+      logger.error('WebSocket init error:', error);
       setConnectionStatus(prev => ({ ...prev, ws: false }));
     }
   };
@@ -189,7 +235,20 @@ export const useTranslator = () => {
       setTranslatedText(translation);
       setStatus(`✅ Done (${fromLang} → ${toLang})`);
 
-      // Озвучка перевода
+      // ОТПРАВИТЬ В КОМНАТУ ЧЕРЕЗ WEBSOCKET
+      if (websocketRef?.current?.readyState === WebSocket.OPEN) {
+        websocketRef.current.send(JSON.stringify({
+          type: 'translation',
+          original: text,
+          translation: translation,
+          from: fromLang,
+          to: toLang,
+          timestamp: new Date().toISOString()
+        }));
+        logger.info('Translation sent to room');
+      }
+
+      // Озвучка
       const targetLangCode = toLang.toLowerCase();
       if ('speechSynthesis' in window && translation) {
         const utterance = new SpeechSynthesisUtterance(translation);
@@ -243,7 +302,6 @@ export const useTranslator = () => {
     setTranslationMode(newMode);
     setStatus(newMode === 'auto' ? '🤖 Auto mode' : '🎯 Manual mode');
 
-    // ✅ Переключаем язык микрофона
     const newLang = newMode === 'manual'
       ? (currentRole === 'user' ? 'ru-RU' : 'fr-FR')
       : 'ru-RU';
@@ -257,7 +315,6 @@ export const useTranslator = () => {
 
     initSpeechRecognition();
   };
-
 
   const handleRoleChange = (role: 'user' | 'steuerberater') => {
     if (translationMode === 'manual') {
@@ -321,6 +378,7 @@ export const useTranslator = () => {
     performTranslation,
     toggleTranslationMode,
     recognitionLang,
-    setRecognitionLang
+    setRecognitionLang,
+    websocketRef
   };
 };

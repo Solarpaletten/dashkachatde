@@ -9,7 +9,7 @@ export const polishConfig: LanguageConfig = {
     direction: 'ltr'
   },
   app: {
-    title: '🚀 DashkaBot Polish 2.0',
+    title: '🚀 Dual Translator',
     subtitle: 'Galaxy S24 - Russian ⇄ Polish Voice Translator 2.1'
   },
   buttons: {
