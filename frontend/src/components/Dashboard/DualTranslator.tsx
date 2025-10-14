@@ -63,11 +63,24 @@ const DualTranslator: React.FC = () => {
     setRecognitionLang(newDialect);
   };
 
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert(`${label} скопирован`);
+    } catch {
+      alert('Ошибка');
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Enter' && !isRecording) {
         e.preventDefault();
-        switchDialect();
+        const nextIndex = (dialectIndex + 1) % dialects.length;
+        setDialectIndex(nextIndex);
+        const newDialect = dialects[nextIndex];
+        setDialect(newDialect);
+        setRecognitionLang(newDialect);
       } else if (e.code === 'Space') {
         e.preventDefault();
         toggleRecording();
@@ -80,7 +93,7 @@ const DualTranslator: React.FC = () => {
   useEffect(() => {
     if (translatedText && translatedText !== 'Перевод появится здесь...' && originalText) {
       const newEntry = {
-        speaker: username || (dialect.startsWith('ru') ? 'RU' : 'FR'),
+        speaker: username || (dialect.startsWith('ru') ? 'RU' : 'DE'),
         lang: dialect,
         text: originalText,
         translation: translatedText,
@@ -100,15 +113,6 @@ const DualTranslator: React.FC = () => {
   useEffect(() => {
     if (rightPanelRef.current) rightPanelRef.current.scrollTop = rightPanelRef.current.scrollHeight;
   }, [translatedText]);
-
-  const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert(`${label} скопирован`);
-    } catch {
-      alert('Ошибка');
-    }
-  };
 
   const pasteToOriginal = async () => {
     try {
