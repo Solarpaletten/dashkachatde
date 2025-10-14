@@ -379,6 +379,7 @@ export const useTranslator = () => {
     toggleTranslationMode,
     recognitionLang,
     setRecognitionLang,
-    websocketRef
+    websocketRef,
+    setOriginalText
   };
 };
