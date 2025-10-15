@@ -30,3 +30,7 @@ npm run dev
 See [API_REFERENCE.md](docs/API_REFERENCE.md) for details.
 
 const leftPanelRef = useRef<HTMLTextAreaElement>(null);
+
+git add backend/.env.production frontend/.env.production
+git commit -m "feat: add production environment configs for Render"
+git push origin main
