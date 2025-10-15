@@ -126,23 +126,24 @@ const DualTranslator: React.FC = () => {
 
   const wakeUpAPI = async () => {
     setIsWakingUp(true);
-    setStatus('⏰ Пробуждаю backend...');
+    
+    // setStatus('⏰ Пробуждаю backend...');
 
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/health`);
 
       if (response.ok) {
-        setStatus('✅ Backend проснулся!');
+        alert('✅ Backend проснулся!');
         // Переподключить WebSocket
         if (websocketRef?.current) {
           websocketRef.current.close();
         }
         // useTranslator автоматически переподключится через initWebSocket
       } else {
-        setStatus('❌ Backend не отвечает');
+        alert('❌ Backend не отвечает');
       }
     } catch (error) {
-      setStatus('❌ Ошибка подключения к backend');
+      alert('❌ Ошибка подключения к backend');
     } finally {
       setIsWakingUp(false);
     }
