@@ -29,7 +29,7 @@ const DualTranslator: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [roomCode, setRoomCode] = useState('');
   const [username, setUsername] = useState('');
-  const [isWakingUp, setIsWakingUp] = useState(false); 
+  // УДАЛИЛИ: const [isWakingUp, setIsWakingUp] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{
     speaker: string;
     lang: string;
@@ -124,7 +124,7 @@ const DualTranslator: React.FC = () => {
     }
   };
 
-  // Просто открываем ссылку на backend в новой вкладке - это разбудит Render
+  // ИЗМЕНИЛИ: Просто открываем ссылку на backend в новой вкладке
   const wakeUpAPI = () => {
     const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
     window.open(`${backendUrl}/health`, '_blank');
@@ -154,11 +154,10 @@ const DualTranslator: React.FC = () => {
             {!connectionStatus.ai && (
               <button
                 onClick={wakeUpAPI}
-                disabled={isWakingUp}
-                className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 rounded text-white text-xs font-semibold transition-all"
-                title="Разбудить backend на Render"
+                className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 rounded text-white text-xs font-semibold transition-all"
+                title="Разбудить backend на Render (откроет в новой вкладке)"
               >
-                {isWakingUp ? '⏳' : '⏰ Разбудить'}
+                ⏰ Разбудить
               </button>
             )}
 
