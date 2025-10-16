@@ -29,7 +29,7 @@ const DualTranslator: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [roomCode, setRoomCode] = useState('');
   const [username, setUsername] = useState('');
-  // УДАЛИЛИ: const [isWakingUp, setIsWakingUp] = useState(false);
+  const [isWakingUp, setIsWakingUp] = useState(false); 
   const [conversationHistory, setConversationHistory] = useState<Array<{
     speaker: string;
     lang: string;
@@ -124,10 +124,28 @@ const DualTranslator: React.FC = () => {
     }
   };
 
-  // ИЗМЕНИЛИ: Просто открываем ссылку на backend в новой вкладке
-  const wakeUpAPI = () => {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    window.open(`${backendUrl}/health`, '_blank');
+  const wakeUpAPI = async () => {
+    setIsWakingUp(true);
+    setStatus('⏰ Пробуждаю backend...');
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/health`);
+
+      if (response.ok) {
+        setStatus('✅ Backend проснулся!');
+        // Переподключить WebSocket
+        if (websocketRef?.current) {
+          websocketRef.current.close();
+        }
+        // useTranslator автоматически переподключится через initWebSocket
+      } else {
+        setStatus('❌ Backend не отвечает');
+      }
+    } catch (error) {
+      setStatus('❌ Ошибка подключения к backend');
+    } finally {
+      setIsWakingUp(false);
+    }
   };
 
   return (
@@ -154,10 +172,11 @@ const DualTranslator: React.FC = () => {
             {!connectionStatus.ai && (
               <button
                 onClick={wakeUpAPI}
-                className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 rounded text-white text-xs font-semibold transition-all"
-                title="Разбудить backend на Render (откроет в новой вкладке)"
+                disabled={isWakingUp}
+                className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 rounded text-white text-xs font-semibold transition-all"
+                title="Разбудить backend на Render"
               >
-                ⏰ Разбудить
+                {isWakingUp ? '⏳' : '⏰ Разбудить'}
               </button>
             )}
 
