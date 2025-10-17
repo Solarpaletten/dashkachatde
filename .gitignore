@@ -213,3 +213,5 @@ TODO.md
 NOTES.md
 scratch/
 experiments/.env
+commit_message.txt
+*.md # если не нужны .md файлы
