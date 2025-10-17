@@ -27,6 +27,7 @@ const DualTranslator: React.FC = () => {
   const [dialect, setDialect] = useState(recognitionLang);
   const [dialectIndex, setDialectIndex] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
+  const [showRoomJoin, setShowRoomJoin] = useState(false); // Управление видимостью RoomJoin
   const [roomCode, setRoomCode] = useState('');
   const [username, setUsername] = useState('');
   const [isWakingUp, setIsWakingUp] = useState(false); 
@@ -150,7 +151,12 @@ const DualTranslator: React.FC = () => {
 
   return (
     <>
-      {!isConnected && <RoomJoin onJoin={handleJoinRoom} />} {/* Показывать RoomJoin, если не подключен */}
+      {!isConnected && showRoomJoin && (
+        <RoomJoin 
+          onJoin={handleJoinRoom} 
+          onClose={() => setShowRoomJoin(false)} 
+        />
+      )}
       <div className="w-full h-screen flex flex-col bg-gradient-to-br from-purple-600 via-blue-600 to-teal-600">
         <header className="flex justify-between items-center p-6 flex-wrap gap-3">
           <h1 className="text-white text-3xl font-bold">🎤 Dual Translator</h1>
@@ -177,6 +183,17 @@ const DualTranslator: React.FC = () => {
                 title="Разбудить backend на Render"
               >
                 {isWakingUp ? '⏳' : '⏰ Разбудить'}
+              </button>
+            )}
+
+            {/* Кнопка входа в комнату - показывается только когда backend готов */}
+            {connectionStatus.ai && connectionStatus.ws && !isConnected && (
+              <button
+                onClick={() => setShowRoomJoin(true)}
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-white text-sm font-semibold transition-all"
+                title="Создать или войти в комнату"
+              >
+                🚪 Войти в комнату
               </button>
             )}
 
