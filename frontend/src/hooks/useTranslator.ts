@@ -205,18 +205,18 @@ export const useTranslator = () => {
 
       if (translationMode === 'auto') {
         const detected = await detectLanguage(text);
-        setRecognitionLang(detected === 'RU' ? 'ru-RU' : 'en-US');
+        setRecognitionLang(detected === 'RU' ? 'ru-RU' : 'de-DE');
 
         if (detected === 'RU') {
           fromLang = 'RU';
-          toLang = 'EN';
+          toLang = 'DE';
         } else {
           fromLang = detected;
           toLang = 'RU';
         }
       } else {
-        fromLang = currentRole === 'user' ? 'RU' : 'EN';
-        toLang = currentRole === 'user' ? 'EN' : 'RU';
+        fromLang = currentRole === 'user' ? 'RU' : 'DE';
+        toLang = currentRole === 'user' ? 'DE' : 'RU';
       }
 
       const response = await fetch(`${config.aiServer}/translate`, {
@@ -303,7 +303,7 @@ export const useTranslator = () => {
     setStatus(newMode === 'auto' ? '🤖 Auto mode' : '🎯 Manual mode');
 
     const newLang = newMode === 'manual'
-      ? (currentRole === 'user' ? 'ru-RU' : 'en-US')
+      ? (currentRole === 'user' ? 'ru-RU' : 'de-DE')
       : 'ru-RU';
 
     setRecognitionLang(newLang);
@@ -320,7 +320,7 @@ export const useTranslator = () => {
     if (translationMode === 'manual') {
       setCurrentRole(role);
       if (recognitionRef.current) {
-        recognitionRef.current.lang = role === 'user' ? 'ru-RU' : 'en-US';
+        recognitionRef.current.lang = role === 'user' ? 'ru-RU' : 'de-DE';
       }
     }
   };
