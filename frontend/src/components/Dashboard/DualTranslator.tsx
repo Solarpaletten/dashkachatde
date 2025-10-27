@@ -17,9 +17,9 @@ const DualTranslator: React.FC = () => {
     performTranslation
   } = useTranslator();
 
-  const dialects = ['de-DE', 'ru-RU'];
+  const dialects = ['en-US', 'ru-RU'];
   const dialectNames = {
-    'de-DE': '🇩🇪 Deutsch',
+    'en-US': '🇺🇸 English',
     'ru-RU': '🇷🇺 Русский'
   };
 
