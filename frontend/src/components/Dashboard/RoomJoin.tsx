@@ -44,7 +44,7 @@ const RoomJoin: React.FC<RoomJoinProps> = ({ onJoin, onClose }) => {
               type="text"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
-              placeholder="EN"
+              placeholder="DE"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               required
             />
@@ -59,7 +59,7 @@ const RoomJoin: React.FC<RoomJoinProps> = ({ onJoin, onClose }) => {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="EN"
+              placeholder="DE"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               required
             />
